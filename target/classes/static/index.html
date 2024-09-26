@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>properties</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+        }
+        form, table {
+            width: 100%;
+            margin: 20px 0;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        table {
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<h1>Gestor de Propiedades Inmobiliarias</h1>
+
+<form id="propertyForm">
+    <input type="hidden" id="propertyId">
+    <label for="address">Dirección:</label>
+    <input type="text" id="address" required>
+    <label for="price">Precio:</label>
+    <input type="number" id="price" required min="0">
+    <label for="size">Tamaño (m²):</label>
+    <input type="number" id="size" required min="0">
+    <label for="description">Descripción:</label>
+    <textarea id="description" required></textarea>
+    <button type="submit">Guardar Propiedad</button>
+</form>
+
+<table id="propertyTable">
+    <thead>
+    <tr>
+        <th>Dirección</th>
+        <th>Precio</th>
+        <th>Tamaño</th>
+        <th>Descripción</th>
+        <th>Acciones</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<script>
+    let properties = [];
+    let editingId = null;
+
+    const propertyForm = document.getElementById('propertyForm');
+    const propertyTable = document.getElementById('propertyTable');
+
+    propertyForm.addEventListener('submit', handleFormSubmit);
+
+    async function fetchProperties() {
+        const response = await fetch('/api/properties');
+        properties = await response.json();
+        updateTable();
+    }
+
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        const property = {
+            address: document.getElementById('address').value,
+            price: parseFloat(document.getElementById('price').value),
+            size: parseFloat(document.getElementById('size').value),
+            description: document.getElementById('description').value
+        };
+
+        if (editingId) {
+            await fetch(`/api/properties/${editingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(property)
+            });
+            editingId = null;
+        } else {
+            await fetch('/api/properties', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(property)
+            });
+        }
+
+        propertyForm.reset();
+        fetchProperties();
+    }
+
+    function updateTable() {
+        const tbody = propertyTable.querySelector('tbody');
+        tbody.innerHTML = '';
+        properties.forEach(property => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${property.address}</td>
+                <td>$${property.price.toLocaleString()}</td>
+                <td>${property.size} m²</td>
+                <td>${property.description.substring(0, 30)}...</td>
+                <td>
+                    <button onclick="editProperty(${property.id})">Editar</button>
+                    <button onclick="deleteProperty(${property.id})">Eliminar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function editProperty(id) {
+        const property = properties.find(p => p.id === id);
+        if (property) {
+            document.getElementById('propertyId').value = property.id;
+            document.getElementById('address').value = property.address;
+            document.getElementById('price').value = property.price;
+            document.getElementById('size').value = property.size;
+            document.getElementById('description').value = property.description;
+            editingId = id;
+        }
+    }
+
+    async function deleteProperty(id) {
+        if (confirm('¿Estás seguro de que quieres eliminar esta propiedad?')) {
+            await fetch(`/api/properties/${id}`, { method: 'DELETE' });
+            fetchProperties();
+        }
+    }
+
+    fetchProperties();
+</script>
+</body>
+</html>
